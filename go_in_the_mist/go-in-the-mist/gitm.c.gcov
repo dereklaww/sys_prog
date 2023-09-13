@@ -1,0 +1,536 @@
+        -:    0:Source:gitm.c
+        -:    0:Graph:gitm.gcno
+        -:    0:Data:gitm.gcda
+        -:    0:Runs:12
+        -:    1:// name: Derek Law
+        -:    2:// unikey: dlaw7849
+        -:    3:// SID: 510226244
+        -:    4:
+        -:    5:#include <stdio.h>
+        -:    6:#include <stdlib.h>
+        -:    7:#include <string.h>
+        -:    8:#include <ctype.h>
+        -:    9:
+        -:   10:#define BUFFER_LEN 50
+        -:   11:#define HISTORY_LEN 1500
+        -:   12:#define ROWS 20
+        -:   13:#define COLS 20
+        -:   14:#define ARGV_LEN 2
+        -:   15:
+      114:   16:int input_processing(char* player_input, char player_argv[][BUFFER_LEN]) {
+        -:   17:
+        -:   18:        char* input_safe_check;
+        -:   19:
+        -:   20:        // USYD CODE CITATION ACKNOWLEDGEMENT
+        -:   21:        // I declare that the majority of the following code has been taken
+        -:   22:        // from the website titled: "Removing trailing newline character from fgets() input" and it is not my
+        -:   23:        // own work. 
+        -:   24:        //  
+        -:   25:        // Original URL
+        -:   26:        // https://stackoverflow.com/questions/2693776/removing-trailing-newline-character-from-fgets-input
+        -:   27:        // Last access March, 2023
+        -:   28:
+      114:   29:        player_input[strcspn(player_input, "\n")] = 0;
+        -:   30:
+        -:   31:        // check NULL input
+      114:   32:        if (!strcmp(player_input, "\0")) {
+        1:   33:            printf("Invalid!\n");
+        1:   34:            return 1;  
+        -:   35:        }
+        -:   36:
+        -:   37:        // check leading and ending whitespace
+      113:   38:        if (player_input[0] == ' ' || player_input[strlen(player_input) - 1] == ' ') {
+        2:   39:            printf("Invalid!\n");
+        2:   40:            return 1;
+        -:   41:        }
+        -:   42:        
+        -:   43:        //check multiple arguments
+      111:   44:        int whitespace_count = 0;
+      932:   45:        for (int i = 0; i < strlen(player_input); i++) {
+      821:   46:            if (player_input[i] == ' ') {
+       94:   47:                whitespace_count++;
+        -:   48:            }
+        -:   49:        }
+        -:   50:
+      111:   51:        if (whitespace_count > 1) {
+        2:   52:            printf("Invalid!\n");
+        2:   53:            return 1;
+        -:   54:        }
+        -:   55:
+        -:   56:        /* split string at space */ 
+      109:   57:        strcpy(player_argv[0],strtok(player_input, " "));
+        -:   58:
+        -:   59:        // check for second argument
+      109:   60:        input_safe_check = strtok(NULL, " ");
+        -:   61:
+      109:   62:        if (input_safe_check != NULL) {
+       87:   63:            strcpy(player_argv[1], input_safe_check);
+        -:   64:        }
+        -:   65:
+        -:   66:        // check if only "place" command has 2 arguments
+      109:   67:        if (strcmp(player_argv[0], "place") && (strcmp(player_argv[1], "\0"))) {
+        1:   68:            printf("Invalid!\n");
+        1:   69:            return 1;
+        -:   70:        }
+        -:   71:
+      108:   72:    return 0;
+        -:   73:
+        -:   74:}
+        -:   75:
+       83:   76:int place(char map[][COLS], int curr_player, char* coord_input, int mid_mist[]) {
+        -:   77:    
+        -:   78:    char key;
+        -:   79:
+        -:   80:    /* convert coord_input to map coordinates*/
+       83:   81:    int h_coord = (coord_input[0] - 'A');
+       83:   82:    int v_coord = atoi(coord_input + 1);
+        -:   83:
+        -:   84:    /* decode keys */
+       83:   85:    if (curr_player ==  0) {
+       44:   86:        key = '#';
+        -:   87:    } else {
+       39:   88:        key = 'o';
+        -:   89:    }
+        -:   90:
+        -:   91:    // check if tile is occupied
+       83:   92:    if (map[ROWS - v_coord - 1][h_coord] != '.') {
+        1:   93:        printf("Occupied coordinate\n");
+        1:   94:        return 0;
+        -:   95:    } else {
+       82:   96:        map[ROWS - v_coord - 1][h_coord] = key;
+        -:   97:
+        -:   98:        /* calculate centre of mist */
+       82:   99:        mid_mist[0] = 1 + ((5 * (h_coord + 1) * (h_coord + 1) + 3 * (h_coord + 1) + 4) % 19);
+       82:  100:        mid_mist[1] = 1 + ((4 * v_coord * v_coord + 2 * v_coord - 4) % 19);
+        -:  101:    }
+        -:  102:
+       82:  103:    return 1;
+        -:  104:    
+        -:  105:}
+        -:  106:
+        4:  107:int view(char map[][COLS], int mid_mist[]) {
+        -:  108:
+        4:  109:    char view_buffer[BUFFER_LEN] = "";
+        4:  110:    int buffer_index = 0;
+        -:  111:
+        -:  112:    // print coordinates of midpoint
+        4:  113:    printf("%c", 'A' + (mid_mist[0] - 1));
+        -:  114:
+        4:  115:    printf("%d,", mid_mist[1]);
+        -:  116:
+        -:  117:    // +-3 of x-coordinate, +-3 of y-coordinate
+       32:  118:    for (int i = (ROWS - mid_mist[1] - 1) - 3; i <= (ROWS - mid_mist[1] - 1) + 3; i++) {
+        -:  119:
+      224:  120:        for (int j = (mid_mist[0] - 1) - 3; j <= (mid_mist[0] - 1) + 3; j++) {
+        -:  121:
+      196:  122:            if (i < 0 || i > ROWS - 2 || j < 0 || j > COLS - 2) {
+       82:  123:                view_buffer[buffer_index] = 'x';
+        -:  124:            } else {
+      114:  125:                view_buffer[buffer_index] = map[i][j];
+        -:  126:            }
+        -:  127:
+      196:  128:            buffer_index++;
+        -:  129:        }
+        -:  130:    }
+        -:  131:
+        4:  132:    printf("%s\n", view_buffer);
+        -:  133:
+        4:  134:    return 0;
+        -:  135:    
+        -:  136:}
+        -:  137:
+        -:  138:
+      289:  139:int check_game_cond(char map[][20]) {
+        -:  140:
+        -:  141:    
+        -:  142:    /* win condition - horizontal, vertical, diagonal*/
+        -:  143:    /* check horizontal */
+        -:  144:
+     6061:  145:    for (int i = 0; i < ROWS; i++) {
+     5775:  146:        if (strstr(map[i], "#####")) {
+        -:  147:            /* black wins */
+        1:  148:            return 1;
+     5774:  149:        } else if (strstr(map[i], "ooooo")) {
+        -:  150:            /* white wins */
+        2:  151:            return 2;
+        -:  152:        }
+        -:  153:    }
+        -:  154:
+        -:  155:    /* check vertical */
+     5646:  156:    for (int h_coord = 0; h_coord < COLS - 1; h_coord++) {
+        -:  157:
+        -:  158:        // row 15 onwards will have less than 5 keys
+    85820:  159:        for (int v_coord = 0; v_coord < 15; v_coord++) {
+        -:  160:        
+    80460:  161:            if (map[v_coord][h_coord] == '#' &&
+      102:  162:                map[v_coord + 1][h_coord] == '#' &&
+        2:  163:                map[v_coord + 2][h_coord] == '#' &&
+        2:  164:                map[v_coord + 3][h_coord] == '#' &&
+        2:  165:                map[v_coord + 4][h_coord] == '#' ) {
+        -:  166:                /* black wins */
+        2:  167:                return 1;
+    80458:  168:            } else if (map[v_coord][h_coord] == 'o' &&
+        2:  169:                map[v_coord + 1][h_coord] == 'o' &&
+        2:  170:                map[v_coord + 2][h_coord] == 'o' &&
+        2:  171:                map[v_coord + 3][h_coord] == 'o' &&
+        2:  172:                map[v_coord + 4][h_coord] == 'o' ) {
+        -:  173:                /* white wins */
+        2:  174:                return 2;
+        -:  175:                }
+        -:  176:
+        -:  177:        }
+        -:  178:    }
+        -:  179:
+        -:  180:    /* check diagonal - upper left to bottom right */
+      282:  181:    char buffer[BUFFER_LEN];
+        -:  182:
+        -:  183:    // first set [(0, 4) -> (4, 0)]
+        -:  184:    // last set [(0, 18) -> (18, 0)]
+        -:  185:
+     4511:  186:    for (int temp_y = 4; temp_y < ROWS - 1; temp_y++) {
+        -:  187:
+     4230:  188:        int buffer_index = 0;
+        -:  189:
+     4230:  190:        strcpy(buffer, "\0");
+        -:  191:
+    54990:  192:        for (int x = 0, y = temp_y; x <= temp_y; x++, y--, buffer_index++) { 
+    50760:  193:            buffer[buffer_index] = map[y][x];
+        -:  194:        }
+        -:  195:
+        -:  196:
+     4230:  197:        if (strstr(buffer, "#####")) {
+        -:  198:            /* black wins */
+        1:  199:            return 1;
+     4229:  200:        } else if (strstr(buffer, "ooooo")) {
+        -:  201:            /* white wins */
+    #####:  202:            return 2;
+        -:  203:        }
+        -:  204:    }
+        -:  205:
+        -:  206:    // first set [(14, 18) -> (18, 14)]
+        -:  207:    // last set [(0, 18) -> (18, 0)]
+        -:  208:
+     4496:  209:    for (int temp_x = 14; temp_x >= 0; temp_x--) {
+        -:  210:
+     4215:  211:        int buffer_index = 0;
+        -:  212:
+     4215:  213:        strcpy(buffer, "\0");
+        -:  214:
+    4215*:  215:        for (int x = temp_x, y = 18; y <= temp_x; x++, y--, buffer_index++) {
+    #####:  216:            buffer[buffer_index] = map[y][x];
+        -:  217:        }
+        -:  218:
+        -:  219:
+     4215:  220:        if (strstr(buffer, "#####")) {
+        -:  221:            /* black wins */
+    #####:  222:            return 1;
+     4215:  223:        } else if (strstr(buffer, "ooooo")) {
+        -:  224:            /* white wins */
+    #####:  225:            return 2;
+        -:  226:        }
+        -:  227:    }
+        -:  228:
+        -:  229:    /* check diagonal - upper right to bottom left */
+        -:  230:
+        -:  231:    // first set [(14, 0) -> (18, 4)]
+        -:  232:    // last set [(0, 0) -> (18, 18)]
+        -:  233:
+     4201:  234:    for (int temp_x = 14; temp_x > 0; temp_x--) {
+        -:  235:
+     3921:  236:        int buffer_index = 0;
+        -:  237:
+     3921:  238:        strcpy(buffer, "\0");
+        -:  239:
+    49006:  240:        for (int x = temp_x, y = 0; x < ROWS - 1; x++, y++, buffer_index++) { 
+    45085:  241:            buffer[buffer_index] = map[y][x];
+        -:  242:        }
+        -:  243:
+        -:  244:
+     3921:  245:        if (strstr(buffer, "#####")) {
+        -:  246:            /* black wins */
+        1:  247:            return 1;
+     3920:  248:        } else if (strstr(buffer, "ooooo")) {
+        -:  249:            /* white wins */
+    #####:  250:            return 2;
+        -:  251:        }
+        -:  252:    }
+        -:  253:
+        -:  254:    // first set [(0, 14) -> (4, 18)]
+        -:  255:    // last set [(0, 0) -> (18, 18)]
+        -:  256:
+     4186:  257:    for (int temp_y = 14; temp_y > 0; temp_y--) {
+        -:  258:
+     3907:  259:        int buffer_index = 0;
+        -:  260:
+     3907:  261:        strcpy(buffer, "\0");
+        -:  262:
+    48831:  263:        for (int x = 0, y = temp_y; y < ROWS - 1; x++, y++, buffer_index++) {
+    44924:  264:            buffer[buffer_index] = map[y][x];
+        -:  265:        }
+        -:  266:
+     3907:  267:        if (strstr(buffer, "#####")) {
+        -:  268:            /* black wins */
+        1:  269:            return 1;
+     3906:  270:        } else if (strstr(buffer, "ooooo")) {
+        -:  271:            /* white wins */
+    #####:  272:            return 2;
+        -:  273:        }
+        -:  274:    }
+        -:  275:
+      279:  276:    int tile_available = 0;
+        -:  277:
+        -:  278:    /* tie condition - all tiles are occupied */
+        -:  279:
+     5580:  280:    for (int i = 0; i < ROWS - 1; i++) {
+        -:  281:
+   106020:  282:        for (int j = 0; j < COLS - 1; j++) {
+   100719:  283:            if (map[i][j] == '.') {
+    99450:  284:                tile_available = 1;
+        -:  285:            }
+        -:  286:        }
+        -:  287:    }
+        -:  288:
+      279:  289:    if (tile_available == 0) {
+        -:  290:        /* no tile available - tie */
+    #####:  291:        return 3;
+        -:  292:    }
+        -:  293:
+      279:  294:    return 0;
+        -:  295:}
+        -:  296:
+       12:  297:int main() {
+        -:  298:    
+        -:  299:    /* map declaration */
+        -:  300:
+       12:  301:    char game_map[ROWS][COLS] = 
+        -:  302:    {
+        -:  303:        "...................", 
+        -:  304:        "...................", 
+        -:  305:        "...................", 
+        -:  306:        "...................", 
+        -:  307:        "...................", 
+        -:  308:        "...................", 
+        -:  309:        "...................", 
+        -:  310:        "...................", 
+        -:  311:        "...................", 
+        -:  312:        "...................", 
+        -:  313:        "...................", 
+        -:  314:        "...................", 
+        -:  315:        "...................", 
+        -:  316:        "...................", 
+        -:  317:        "...................", 
+        -:  318:        "...................", 
+        -:  319:        "...................", 
+        -:  320:        "...................", 
+        -:  321:        "...................", 
+        -:  322:    };
+        -:  323:
+        -:  324:    /* game configurations */
+        -:  325:
+        -:  326:    // curr_player: 0 = B, 1 = W
+       12:  327:    int curr_player = 0;
+       12:  328:    int next_round = 0;
+        -:  329:
+        -:  330:    /* read command line arguments */
+       12:  331:    char player_input[BUFFER_LEN] = "\0";
+       12:  332:    char player_argv[ARGV_LEN][BUFFER_LEN] = {"\0", "\0"};
+        -:  333:    char *input_safe_check;
+       12:  334:    char *coord_input = "\0";
+        -:  335:
+        -:  336:    /* buffer for history */
+       12:  337:    char history[HISTORY_LEN] = "\0";
+        -:  338:
+        -:  339:    /* mist initialisation */
+       12:  340:    int mid_mist[2] = {10, 10};
+        -:  341:
+       12:  342:    int valid_command = 0;
+       12:  343:    int invalid_coord = 0;
+        -:  344:
+        -:  345:    /* length of player input */
+       12:  346:    int input_len = 0;
+        -:  347:    /* variable to read remaining characters from stdin */
+        -:  348:    int c;
+        -:  349:
+      105:  350:    while (1) {
+        -:  351:
+        -:  352:        /* reset buffer values */
+      117:  353:        strcpy(player_input, "\0");
+      117:  354:        strcpy(player_argv[0], "\0");
+      117:  355:        strcpy(player_argv[1], "\0");
+      117:  356:        valid_command = 0;
+      117:  357:        invalid_coord = 0;
+        -:  358:        
+        -:  359:        /* read input from stdin */
+      117:  360:        input_safe_check = fgets(player_input, BUFFER_LEN, stdin);
+        -:  361:
+        -:  362:        /* check for NULL input */
+     117*:  363:        if (input_safe_check == NULL) {
+    #####:  364:            printf("Invalid!\n");
+    #####:  365:            continue;
+        -:  366:        }
+        -:  367:
+        -:  368:        // check for input length longer than buffer size
+      117:  369:        input_len = strlen(input_safe_check);
+      117:  370:        int coord_probability = 0;
+      117:  371:        if (input_len == BUFFER_LEN - 1 && input_safe_check[BUFFER_LEN - 2] != '\n') {
+        -:  372:            
+        -:  373:            // check if input is a place command - different error handling
+        3:  374:            if (!strcmp(strtok(input_safe_check, " "), "place")) {
+        3:  375:                coord_probability = 1;
+        3:  376:                strtok(NULL, " ");
+        -:  377:
+        3:  378:                if (strtok(NULL, " ") != NULL) {
+        1:  379:                    coord_probability = 0;
+        -:  380:                }
+        -:  381:            }
+        -:  382:
+        -:  383:            // read remaining characters from stdin
+     5214:  384:            while ((c = getchar()) && (c != '\n') && (c != EOF)) {
+     5211:  385:                if (c == ' ') {
+        1:  386:                    coord_probability = 0;
+        -:  387:                }
+        -:  388:            }
+        -:  389:
+        -:  390:            // print error messages
+        3:  391:            if (coord_probability == 1) {
+        1:  392:                printf("Invalid coordinate\n");
+        -:  393:            } else {
+        2:  394:                printf("Invalid!\n");
+        -:  395:            }
+        3:  396:            continue;
+        -:  397:        }
+        -:  398:        
+        -:  399:        // error checking for whitespaces, no. of arguments, splitting input at whitespace if valid input
+      114:  400:        if (input_processing(player_input, player_argv)) {
+        6:  401:            continue;
+        -:  402:        } else {
+        -:  403:        
+        -:  404:            /* process player commands */
+        -:  405:            
+      108:  406:            if (!strcmp(player_argv[0], "who")) {
+       11:  407:                valid_command = 1;
+       11:  408:                if (curr_player ==  0) {
+       11:  409:                    printf("B\n");
+        -:  410:                } else {
+    #####:  411:                    printf("W\n");
+        -:  412:                }
+        -:  413:            }
+        -:  414:
+       97:  415:            else if (!strcmp(player_argv[0], "term")) {
+        2:  416:                return 1;
+        -:  417:            }
+        -:  418:
+       95:  419:            else if (!strcmp(player_argv[0], "resign")) {
+        2:  420:                if (curr_player ==  0) {
+        2:  421:                    printf("White wins!\n");
+        2:  422:                    printf("%s\n", history);
+        -:  423:                } else {
+    #####:  424:                    printf("Black wins!\n");
+    #####:  425:                    printf("%s\n", history);
+        -:  426:                }
+        2:  427:                printf("Thank you for playing!\n");
+        2:  428:                return 0;
+        -:  429:            }
+        -:  430:
+       93:  431:            else if (!strcmp(player_argv[0], "place")) {
+        -:  432:
+       86:  433:                valid_command = 1;
+        -:  434:
+      86*:  435:                if (!strcmp(player_argv[1] ,"\0")) {
+    #####:  436:                    printf("Invalid!\n");
+    #####:  437:                    continue;
+        -:  438:                }
+        -:  439:
+       86:  440:                coord_input = player_argv[1];
+        -:  441:
+        -:  442:                // check length of coordinates fulfil 2/3 characters
+       86:  443:                if (strlen(coord_input) != 2 && strlen(coord_input) != 3 ) {
+        1:  444:                    invalid_coord = 1;
+        -:  445:                }
+        -:  446:                
+        -:  447:                // check first character is an alphabet
+       86:  448:                if (!isalpha(coord_input[0])) {
+        2:  449:                    invalid_coord = 1;
+        -:  450:                }
+        -:  451:                
+        -:  452:                // check remaining characters are digits
+      182:  453:                for (int i = 1; i < strlen(coord_input); i++) {
+       96:  454:                    if (!isdigit(coord_input[i])) {
+        2:  455:                        invalid_coord = 1;
+        -:  456:                    }
+        -:  457:                }
+        -:  458:
+        -:  459:                // check for leading zeros
+       86:  460:                if (strlen(coord_input) == 3 && coord_input[1] == '0') {
+        1:  461:                    invalid_coord = 1;
+        -:  462:
+        -:  463:                // check for capital letters
+       85:  464:                } else if (coord_input[0] % 'A' < 0 || coord_input[0] % 'A' > 18) {
+        2:  465:                    invalid_coord = 1;
+        -:  466:
+        -:  467:                // check digits in range 1-9
+       83:  468:                } else if (atoi(coord_input + 1) < 1 || atoi(coord_input + 1) > 19) {
+    #####:  469:                    invalid_coord = 1;
+        -:  470:                }
+        -:  471:                
+        -:  472:                // if valid coordinate, place character, update history, flag next turn
+       86:  473:                if (invalid_coord) {
+        3:  474:                    printf("Invalid coordinate\n");
+        3:  475:                    continue;
+        -:  476:                } else {
+       83:  477:                    if (place(game_map, curr_player, coord_input, mid_mist)) {
+       82:  478:                        strcat(history, player_argv[1]);
+       82:  479:                        next_round = 1;
+        -:  480:                    }
+        -:  481:                }
+        -:  482:            }
+        -:  483:
+        7:  484:            else if (!strcmp(player_argv[0], "history")) {
+        3:  485:                valid_command = 1;
+        3:  486:                printf("%s\n", history);
+        -:  487:            }
+        -:  488:
+        4:  489:            else if (!strcmp(player_argv[0], "view")) {
+        4:  490:                valid_command = 1;
+        4:  491:                view(game_map, mid_mist);
+        -:  492:            }
+        -:  493:        }
+        -:  494:        
+     101*:  495:        if (!valid_command) {
+    #####:  496:            printf("Invalid!\n");
+    #####:  497:            continue;
+        -:  498:        }
+        -:  499:    
+      101:  500:        if (check_game_cond(game_map) == 1) {
+        6:  501:            printf("Black wins!\n");
+        6:  502:            printf("%s\n", history);
+        6:  503:            printf("Thank you for playing!\n");
+        6:  504:            return 0;
+       95:  505:        } else if (check_game_cond(game_map) == 2) {
+        2:  506:            printf("White wins!\n");
+        2:  507:            printf("%s\n", history);
+        2:  508:            printf("Thank you for playing!\n");
+        2:  509:            return 0;
+       93:  510:        } else if (check_game_cond(game_map) == 3) {
+    #####:  511:            printf("Wow, a tie!\n");
+    #####:  512:            printf("%s\n", history);
+    #####:  513:            printf("Thank you for playing!\n");
+    #####:  514:            return 0;
+        -:  515:        }
+        -:  516:
+       93:  517:        if (next_round) {
+       74:  518:            if (curr_player) {
+       36:  519:                curr_player = 0;
+       36:  520:                next_round = 0;
+        -:  521:            } else {
+       38:  522:                curr_player = 1;
+       38:  523:                next_round = 0;
+        -:  524:            }
+        -:  525:        }
+        -:  526:
+        -:  527:    }
+        -:  528:}
+        -:  529:
+        -:  530:
+        -:  531:
+        -:  532:
